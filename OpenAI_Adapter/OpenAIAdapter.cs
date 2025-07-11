@@ -39,7 +39,6 @@ namespace BH.Adapter.OpenAI
             string authCode = credentialsSource.IAuthorizationCode();
             m_HttpClient = new HttpClient();
             m_HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authCode);
-            m_HttpClient.DefaultRequestHeaders.Add("api-key", authCode);
         }
 
 
