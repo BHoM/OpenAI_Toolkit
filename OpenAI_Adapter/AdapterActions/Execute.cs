@@ -42,7 +42,7 @@ namespace BH.Adapter.OpenAI
 
         public override Output<List<object>, bool> Execute(IExecuteCommand command, ActionConfig actionConfig = null)
         {
-            return Execute(command as dynamic, actionConfig);
+            return ExecuteAsync(command as dynamic, actionConfig).Result;
         }
 
 
@@ -50,13 +50,14 @@ namespace BH.Adapter.OpenAI
         /****              Public methods               ****/
         /***************************************************/
 
-        public Output<List<object>, bool> Execute(ExecutePrompt command, ActionConfig actionConfig = null)
+        public async Task<Output<List<object>, bool>> ExecuteAsync(ExecutePrompt command, ActionConfig actionConfig = null)
         {
             PromptExecutionConfig config = actionConfig as PromptExecutionConfig ?? new PromptExecutionConfig();
 
             try
             {
-                return new Output<List<object>, bool> { Item1 = new List<object> { Task.Run(() => PromptAsync(command.System, command.User, config)).Result }, Item2 = true };
+
+                return new Output<List<object>, bool> { Item1 = new List<object> { await PromptAsync(command.System, command.User, config).ConfigureAwait(false) }, Item2 = true };
             }
             catch (Exception ex)
             {
