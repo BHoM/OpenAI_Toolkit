@@ -42,7 +42,7 @@ namespace BH.Adapter.OpenAI
 
         public override Output<List<object>, bool> Execute(IExecuteCommand command, ActionConfig actionConfig = null)
         {
-            return ExecuteAsync(command as dynamic, actionConfig).Result;
+            return Execute(command as dynamic, actionConfig);
         }
 
 
@@ -50,25 +50,36 @@ namespace BH.Adapter.OpenAI
         /****              Public methods               ****/
         /***************************************************/
 
-        public async Task<Output<List<object>, bool>> ExecuteAsync(ExecutePrompt command, ActionConfig actionConfig = null)
+        public async Task<Output<string, bool>> ExecuteAsync(ExecutePrompt command, ActionConfig actionConfig = null)
         {
             PromptExecutionConfig config = actionConfig as PromptExecutionConfig ?? new PromptExecutionConfig();
 
             try
             {
-
-                return new Output<List<object>, bool> { Item1 = new List<object> { await PromptAsync(command.System, command.User, config).ConfigureAwait(false) }, Item2 = true };
+                return new Output<string, bool> { Item1 = await PromptAsync(command.System, command.User, config).ConfigureAwait(false), Item2 = true };
             }
             catch (Exception ex)
             {
                 BH.Engine.Base.Compute.RecordError($"OpenAI prompt execution failed with the following exception:\n{ex.Message}");
-                return new Output<List<object>, bool> { Item1 = new List<object>(), Item2 = false };
+                return new Output<string, bool> { Item1 = "", Item2 = false };
             }
         }
 
 
         /***************************************************/
         /****              Private methods              ****/
+        /***************************************************/
+
+        private Output<List<object>, bool> Execute(ExecutePrompt command, ActionConfig actionConfig = null)
+        {
+            Output<string, bool> promptResult = ExecuteAsync(command, actionConfig).Result;
+            List<object> toReturn = new List<object>();
+            if (promptResult.Item2)
+                toReturn.Add(promptResult.Item1);
+
+            return new Output<List<object>, bool> { Item1 = toReturn, Item2 = promptResult.Item2 };
+        }
+
         /***************************************************/
 
         private async Task<string> PromptAsync(string system, string user, PromptExecutionConfig config)
@@ -90,7 +101,7 @@ namespace BH.Adapter.OpenAI
             string json = JsonSerializer.Serialize(requestBody);
             StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(config.TimeoutSeconds)))
             {
                 HttpResponseMessage response = await m_HttpClient.PostAsync(m_Url, content, cts.Token).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();

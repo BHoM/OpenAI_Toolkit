@@ -41,6 +41,9 @@ namespace BH.oM.Adapters.OpenAI
         [Description("Maximum number of tokens to generate in the response. This limits the length of the output, with a typical value being 2048 tokens. Adjusting this can help control the verbosity of the response.")]
         public virtual int MaxTokens { get; set; } = 2048;
 
+        [Description("Timeout in seconds for the prompt execution. This setting determines how long the system will wait for a response before timing out. A typical value is 30 seconds, but it can be adjusted based on the expected response time of the API.")]
+        public virtual int TimeoutSeconds { get; set; } = 30;
+
         /***************************************************/
     }
 }
