@@ -33,7 +33,7 @@ namespace BH.oM.Adapters.OpenAI
         /****             Public properties             ****/
         /***************************************************/
 
-        public IAuthorizationSource Authorization { get; set; }
+        public virtual IAuthorizationSource Authorization { get; set; }
 
         /***************************************************/
     }

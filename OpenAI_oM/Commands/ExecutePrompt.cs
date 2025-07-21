@@ -22,6 +22,7 @@
 
 using BH.oM.Adapter;
 using BH.oM.Base;
+using System.Collections.Generic;
 using System.ComponentModel;
 
 namespace BH.oM.Adapters.OpenAI.Commands
@@ -33,11 +34,11 @@ namespace BH.oM.Adapters.OpenAI.Commands
         /****             Public properties             ****/
         /***************************************************/
 
-        [Description("The system message to be used in the prompt execution.")]
-        public string System { get; set; }
+        [Description("System message to be used in the prompt execution.")]
+        public virtual string System { get; set; }
 
-        [Description("The user message to be used in the prompt execution.")]
-        public string User { get; set; }
+        [Description("User messages to be used in the prompt execution.")]
+        public virtual List<string> User { get; set; }
 
         /***************************************************/
     }

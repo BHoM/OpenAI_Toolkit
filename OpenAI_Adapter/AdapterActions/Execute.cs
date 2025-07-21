@@ -26,6 +26,7 @@ using BH.oM.Adapters.OpenAI.Commands;
 using BH.oM.Base;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -82,13 +83,15 @@ namespace BH.Adapter.OpenAI
 
         /***************************************************/
 
-        private async Task<string> PromptAsync(string system, string user, PromptExecutionConfig config)
+        private async Task<string> PromptAsync(string system, IEnumerable<string> user, PromptExecutionConfig config)
         {
             List<object> messages = new List<object>
             {
                 new { role = "system", content = system },
-                new { role = "user", content = user }
+
             };
+
+            messages.AddRange(user.Select(x => new { role = "user", content = x }));
 
             var requestBody = new
             {
@@ -104,10 +107,10 @@ namespace BH.Adapter.OpenAI
             using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(config.TimeoutSeconds)))
             {
                 HttpResponseMessage response = await m_HttpClient.PostAsync(m_Url, content, cts.Token).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
 
                 string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 dynamic result = JsonSerializer.Deserialize<dynamic>(responseString);
+                response.EnsureSuccessStatusCode();
 
                 return result
                      .GetProperty("choices")[0]
