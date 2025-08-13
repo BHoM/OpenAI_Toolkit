@@ -57,7 +57,7 @@ namespace BH.Adapter.OpenAI
 
             try
             {
-                return new Output<string, bool> { Item1 = await PromptAsync(command.System, command.User, config).ConfigureAwait(false), Item2 = true };
+                return new Output<string, bool> { Item1 = await PromptAsync(command.System, command.User, command.Assistant, config).ConfigureAwait(false), Item2 = true };
             }
             catch (Exception ex)
             {
@@ -83,7 +83,7 @@ namespace BH.Adapter.OpenAI
 
         /***************************************************/
 
-        private async Task<string> PromptAsync(string system, IEnumerable<string> user, PromptExecutionConfig config)
+        private async Task<string> PromptAsync(string system, IEnumerable<string> user, IEnumerable<string> assistant, PromptExecutionConfig config)
         {
             List<object> messages = new List<object>
             {
@@ -92,6 +92,7 @@ namespace BH.Adapter.OpenAI
             };
 
             messages.AddRange(user.Select(x => new { role = "user", content = x }));
+            messages.AddRange(assistant.Select(x => new { role = "assistant", content = x }));
 
             var requestBody = new
             {

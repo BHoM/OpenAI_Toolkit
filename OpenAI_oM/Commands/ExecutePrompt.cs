@@ -27,7 +27,7 @@ using System.ComponentModel;
 
 namespace BH.oM.Adapters.OpenAI.Commands
 {
-    [Description("Command to execute a prompt with a system and user message.")]
+    [Description("Command to execute a prompt with a system and user message. Allows for continuous chats by providing previous messages and responses to " + nameof(User) + " and " + nameof(Assistant) + ", respectively.")]
     public class ExecutePrompt : IExecuteCommand, IObject
     {
         /***************************************************/
@@ -35,10 +35,13 @@ namespace BH.oM.Adapters.OpenAI.Commands
         /***************************************************/
 
         [Description("System message to be used in the prompt execution.")]
-        public virtual string System { get; set; }
+        public virtual string System { get; set; } = "";
 
-        [Description("User messages to be used in the prompt execution.")]
-        public virtual List<string> User { get; set; }
+        [Description("User messages within chat thread, from oldest to the latest, should always be one more than " + nameof(Assistant) + ".")]
+        public virtual List<string> User { get; set; } = new List<string>();
+
+        [Description("LLM responses within chat thread, from oldest to the latest, should always be one less than " + nameof(User) + ".")]
+        public virtual List<string> Assistant { get; set; } = new List<string>();
 
         /***************************************************/
     }
