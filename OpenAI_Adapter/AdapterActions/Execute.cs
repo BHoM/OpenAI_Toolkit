@@ -85,10 +85,15 @@ namespace BH.Adapter.OpenAI
 
         private async Task<string> PromptAsync(string system, IEnumerable<string> user, IEnumerable<string> assistant, PromptExecutionConfig config)
         {
+            if (string.IsNullOrWhiteSpace(m_HttpClient?.DefaultRequestHeaders?.Authorization?.Parameter))
+            {
+                BH.Engine.Base.Compute.RecordError("Cannot execute the prompt because user authorisation failed.");
+                return "";
+            }
+
             List<object> messages = new List<object>
             {
                 new { role = "system", content = system },
-
             };
 
             messages.AddRange(user.Select(x => new { role = "user", content = x }));
