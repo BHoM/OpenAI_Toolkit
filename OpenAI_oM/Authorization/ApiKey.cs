@@ -1,6 +1,6 @@
-/*
+﻿/*
  * This file is part of the Buildings and Habitats object Model (BHoM)
- * Copyright (c) 2015 - 2024, the respective contributors. All rights reserved.
+ * Copyright (c) 2015 - 2025, the respective contributors. All rights reserved.
  *
  * Each contributor holds copyright over their respective contributions.
  * The project versioning (Git) records all such contribution source information.
@@ -20,30 +20,20 @@
  * along with this code. If not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.      
  */
 
-using BH.oM.Base;
-using BH.oM.Base.Attributes;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 
-namespace BH.oM.Adapters.SoftwareName
+namespace BH.oM.Adapters.OpenAI.Authorization
 {
-    [Description("Object description in here. Will appear in the UI tooltip.")]
-    public class ExampleObject : BHoMObject
+    [Description("An API key object, used as a source of authorization credentials in API calls.")]
+    public class ApiKey : IAuthorizationSource
     {
-        // // See examples in the BHoM repo and the wiki to see how we define types.
-        // // Generally, all properties should be public and have public getter and setter.
-        // // BHoM Objects should have orthogonal properties and no behaviour (no methods), as in C# Records (or Python Dataclasses).
-        // // No constructor should be specified. If a specific instantiaton method is needed, we make it as an "Engine/Create" method.
-        // // Objects created with this convention will automatically appear as UI components (e.g. Grasshopper component).
+        /***************************************************/
+        /****             Public properties             ****/
+        /***************************************************/
 
-        [Description("Property description in here.")]
-        public string SomeStringProperty { get; set; }
+        [Description("The API key string used for authorization.")]
+        public virtual string Key { get; set; } = "";
 
-        [Description("Property description in here.")]
-        public int SomeNumberProperty { get; set; }
+        /***************************************************/
     }
 }
-
-

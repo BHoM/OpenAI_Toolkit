@@ -1,6 +1,6 @@
-/*
+﻿/*
  * This file is part of the Buildings and Habitats object Model (BHoM)
- * Copyright (c) 2015 - 2024, the respective contributors. All rights reserved.
+ * Copyright (c) 2015 - 2025, the respective contributors. All rights reserved.
  *
  * Each contributor holds copyright over their respective contributions.
  * The project versioning (Git) records all such contribution source information.
@@ -20,32 +20,18 @@
  * along with this code. If not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.      
  */
 
-using BH.oM.Adapters.SoftwareName;
 using BH.oM.Base;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.ComponentModel;
 
-namespace BH.Adapter.SoftwareName
+namespace BH.oM.Adapters.OpenAI.Authorization
 {
-    public static partial class Convert
+    [Description("An interface representing a source of authorization credentials for API calls. Implementations should provide a way to extract the authorization code (e.g., API key or token) from the source object.")]
+    public interface IAuthorizationSource : IObject
     {
         /***************************************************/
-        /**** Public Methods                            ****/
+        /****             Public properties             ****/
         /***************************************************/
-
-        // Add methods for converting from BHoM to the specific software types
-        // Example:
-        public static ExampleObject ToSoftwareName(this BHoMObject node)
-        {
-            //Insert code for convertion
-            throw new NotImplementedException();
-        }
 
         /***************************************************/
     }
 }
-
-

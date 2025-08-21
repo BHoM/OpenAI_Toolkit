@@ -1,6 +1,6 @@
-/*
+﻿/*
  * This file is part of the Buildings and Habitats object Model (BHoM)
- * Copyright (c) 2015 - 2024, the respective contributors. All rights reserved.
+ * Copyright (c) 2015 - 2025, the respective contributors. All rights reserved.
  *
  * Each contributor holds copyright over their respective contributions.
  * The project versioning (Git) records all such contribution source information.
@@ -20,35 +20,29 @@
  * along with this code. If not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.      
  */
 
+using BH.oM.Adapter;
 using BH.oM.Base;
-using BH.oM.Base.Attributes;
-using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 
-namespace BH.Engine.Adapters.SoftwareName
+namespace BH.oM.Adapters.OpenAI.Commands
 {
-    public static partial class Compute
+    [Description("Command to execute a prompt with a system and user message. Allows for continuous chats by providing previous messages and responses to " + nameof(User) + " and " + nameof(Assistant) + ", respectively.")]
+    public class ExecutePrompt : IExecuteCommand, IObject
     {
         /***************************************************/
-        /**** Public Methods                            ****/
+        /****             Public properties             ****/
         /***************************************************/
 
-        [Description("Description of the method. Will appear in the UI tooltip.")]
-        [Input("someInput1", "Description of the input. Will appear in the UI tooltip.")]
-        [Input("someInput2", "Description of the input. Will appear in the UI tooltip.")]
-        [Output("outputName", "Description of the output. Will appear in the UI tooltip.")]
-        public static void ExampleComputeMethod(string someInput1, string someInput2)
-        {
-            // This method will appear in every UI (e.g. Grasshopper) as a component.
-            // Find it using the CTRL+Shift+B search bar, or by navigating the `Compute` component (Engine tab) right click menu.
-            throw new NotImplementedException();
-        }
+        [Description("System message to be used in the prompt execution.")]
+        public virtual string System { get; set; } = "";
+
+        [Description("User messages within chat thread, from oldest to the latest, should always be one more than " + nameof(Assistant) + ".")]
+        public virtual List<string> User { get; set; } = new List<string>();
+
+        [Description("LLM responses within chat thread, from oldest to the latest, should always be one less than " + nameof(User) + ".")]
+        public virtual List<string> Assistant { get; set; } = new List<string>();
 
         /***************************************************/
-
     }
 }
-
-

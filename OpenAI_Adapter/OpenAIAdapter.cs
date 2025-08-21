@@ -1,6 +1,6 @@
-/*
+﻿/*
  * This file is part of the Buildings and Habitats object Model (BHoM)
- * Copyright (c) 2015 - 2024, the respective contributors. All rights reserved.
+ * Copyright (c) 2015 - 2025, the respective contributors. All rights reserved.
  *
  * Each contributor holds copyright over their respective contributions.
  * The project versioning (Git) records all such contribution source information.
@@ -20,32 +20,35 @@
  * along with this code. If not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.      
  */
 
-using BH.oM.Adapter;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using BH.Engine.Adapters.OpenAI;
+using BH.oM.Adapters.OpenAI.Authorization;
+using System.Net.Http;
+using System.Net.Http.Headers;
 
-namespace BH.Adapter.SoftwareName
+namespace BH.Adapter.OpenAI
 {
-    public partial class SoftwareNameAdapter : BHoMAdapter
+    public partial class OpenAIAdapter : BHoMAdapter
     {
-        // This method gets called when appropriate by the Push method contained in the base Adapter class.
-        // Unlike the Create, Delete and Read, this method already exposes a simple implementation: it calls Delete and then Create.
-        // It can be overridden here keeping in mind the following:
-        // - it gets called once per each Type, and if equal objects are found;
-        // - the object equality is tested through this.AdapterComparers, that need to be implemented for each type.
-        // See the wiki for more info.
-
-        protected override bool IUpdate<T>(IEnumerable<T> objects, ActionConfig actionConfig = null)
-        {
-            return base.IUpdate(objects, actionConfig);
-        }
-
+        /***************************************************/
+        /****               Constructors                ****/
         /***************************************************/
 
+        public OpenAIAdapter(string url, IAuthorizationSource credentialsSource)
+        {
+            m_Url = url;
+            string authCode = credentialsSource.IAuthorizationCode();
+            m_HttpClient = new HttpClient();
+            m_HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authCode);
+        }
+
+
+        /***************************************************/
+        /****               Private  Fields             ****/
+        /***************************************************/
+
+        private string m_Url;
+        private HttpClient m_HttpClient;
+
+        /***************************************************/
     }
 }
-
-
