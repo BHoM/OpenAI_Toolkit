@@ -1,6 +1,6 @@
-﻿/*
+/*
  * This file is part of the Buildings and Habitats object Model (BHoM)
- * Copyright (c) 2015 - 2025, the respective contributors. All rights reserved.
+ * Copyright (c) 2015 - 2026, the respective contributors. All rights reserved.
  *
  * Each contributor holds copyright over their respective contributions.
  * The project versioning (Git) records all such contribution source information.
@@ -20,10 +20,8 @@
  * along with this code. If not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.      
  */
 
-using BH.Engine.Adapters.OpenAI;
 using BH.oM.Adapters.OpenAI.Authorization;
 using System.Net.Http;
-using System.Net.Http.Headers;
 
 namespace BH.Adapter.OpenAI
 {
@@ -36,9 +34,8 @@ namespace BH.Adapter.OpenAI
         public OpenAIAdapter(string url, IAuthorizationSource credentialsSource)
         {
             m_Url = url;
-            string authCode = credentialsSource.IAuthorizationCode();
+            m_AuthorizationSource = credentialsSource;
             m_HttpClient = new HttpClient();
-            m_HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authCode);
         }
 
 
@@ -48,7 +45,10 @@ namespace BH.Adapter.OpenAI
 
         private string m_Url;
         private HttpClient m_HttpClient;
+        private IAuthorizationSource m_AuthorizationSource;
+        private readonly object m_AuthLock = new object();
 
         /***************************************************/
     }
 }
+
