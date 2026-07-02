@@ -1,6 +1,6 @@
-﻿/*
+/*
  * This file is part of the Buildings and Habitats object Model (BHoM)
- * Copyright (c) 2015 - 2025, the respective contributors. All rights reserved.
+ * Copyright (c) 2015 - 2026, the respective contributors. All rights reserved.
  *
  * Each contributor holds copyright over their respective contributions.
  * The project versioning (Git) records all such contribution source information.
@@ -20,6 +20,7 @@
  * along with this code. If not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.      
  */
 
+using BH.Engine.Adapters.OpenAI;
 using BH.oM.Adapter;
 using BH.oM.Adapters.OpenAI;
 using BH.oM.Adapters.OpenAI.Commands;
@@ -85,10 +86,20 @@ namespace BH.Adapter.OpenAI
 
         private async Task<string> PromptAsync(string system, IEnumerable<string> user, IEnumerable<string> assistant, PromptExecutionConfig config)
         {
-            if (string.IsNullOrWhiteSpace(m_HttpClient?.DefaultRequestHeaders?.Authorization?.Parameter))
+            lock (m_AuthLock)
             {
-                BH.Engine.Base.Compute.RecordError("Cannot execute the prompt because user authorisation failed.");
-                return "";
+                string authCode = m_AuthorizationSource.IAuthorizationCode();
+                if (string.IsNullOrWhiteSpace(authCode))
+                {
+                    BH.Engine.Base.Compute.RecordError("Cannot execute the prompt because user authorisation failed.");
+                    return "";
+                }
+
+                if (authCode != m_HttpClient?.DefaultRequestHeaders?.Authorization?.Parameter)
+                {
+                    m_HttpClient.DefaultRequestHeaders.Clear();
+                    m_HttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {authCode}");
+                }
             }
 
             List<object> messages = new List<object>
@@ -129,3 +140,4 @@ namespace BH.Adapter.OpenAI
         /***************************************************/
     }
 }
+
