@@ -110,13 +110,37 @@ namespace BH.Adapter.OpenAI
             messages.AddRange(user.Select(x => new { role = "user", content = x }));
             messages.AddRange(assistant.Select(x => new { role = "assistant", content = x }));
 
-            var requestBody = new
+            object requestBody;
+            if (!string.IsNullOrWhiteSpace(config.ResponseFormatJsonSchema))
             {
-                messages = messages,
-                max_tokens = config.MaxTokens,
-                temperature = config.Temperature,
-                top_p = config.TopP
-            };
+                requestBody = new
+                {
+                    messages = messages,
+                    max_tokens = config.MaxTokens,
+                    temperature = config.Temperature,
+                    top_p = config.TopP,
+                    response_format = new
+                    {
+                        type = "json_schema",
+                        json_schema = new
+                        {
+                            name = config.ResponseFormatName,
+                            schema = JsonSerializer.Deserialize<JsonElement>(config.ResponseFormatJsonSchema),
+                            strict = true
+                        }
+                    }
+                };
+            }
+            else
+            {
+                requestBody = new
+                {
+                    messages = messages,
+                    max_tokens = config.MaxTokens,
+                    temperature = config.Temperature,
+                    top_p = config.TopP
+                };
+            }
 
             string json = JsonSerializer.Serialize(requestBody);
             StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
