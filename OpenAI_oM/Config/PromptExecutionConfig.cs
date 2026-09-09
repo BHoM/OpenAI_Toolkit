@@ -21,6 +21,7 @@
  */
 
 using BH.oM.Adapter;
+using BH.oM.Adapters.OpenAI.Output;
 using System.ComponentModel;
 
 namespace BH.oM.Adapters.OpenAI
@@ -44,11 +45,8 @@ namespace BH.oM.Adapters.OpenAI
         [Description("Timeout in seconds for the prompt execution. This setting determines how long the system will wait for a response before timing out. A typical value is 30 seconds, but it can be adjusted based on the expected response time of the API.")]
         public virtual int TimeoutSeconds { get; set; } = 30;
 
-        [Description("Name of the JSON schema passed to the API when structured output is requested.")]
-        public virtual string ResponseFormatName { get; set; } = null;
-
-        [Description("JSON Schema describing the expected response shape when structured output is requested. When null, the request is sent without a response_format constraint.")]
-        public virtual string ResponseFormatJsonSchema { get; set; } = null;
+        [Description("How the model response should be formatted. Defaults to plain text with no response_format constraint.")]
+        public virtual IOutputType OutputType { get; set; } = new Text();
 
         /***************************************************/
     }
