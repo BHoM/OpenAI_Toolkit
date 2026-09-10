@@ -24,6 +24,7 @@ using BH.Engine.Adapters.OpenAI;
 using BH.oM.Adapter;
 using BH.oM.Adapters.OpenAI;
 using BH.oM.Adapters.OpenAI.Commands;
+using BH.oM.Adapters.OpenAI.Output;
 using BH.oM.Base;
 using System;
 using System.Collections.Generic;
@@ -110,13 +111,29 @@ namespace BH.Adapter.OpenAI
             messages.AddRange(user.Select(x => new { role = "user", content = x }));
             messages.AddRange(assistant.Select(x => new { role = "assistant", content = x }));
 
-            var requestBody = new
+            object responseFormat = BuildResponseFormat(config.OutputType);
+            object requestBody;
+            if (responseFormat == null)
             {
-                messages = messages,
-                max_tokens = config.MaxTokens,
-                temperature = config.Temperature,
-                top_p = config.TopP
-            };
+                requestBody = new
+                {
+                    messages = messages,
+                    max_tokens = config.MaxTokens,
+                    temperature = config.Temperature,
+                    top_p = config.TopP
+                };
+            }
+            else
+            {
+                requestBody = new
+                {
+                    messages = messages,
+                    max_tokens = config.MaxTokens,
+                    temperature = config.Temperature,
+                    top_p = config.TopP,
+                    response_format = responseFormat
+                };
+            }
 
             string json = JsonSerializer.Serialize(requestBody);
             StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -135,6 +152,38 @@ namespace BH.Adapter.OpenAI
                      .GetProperty("content")
                      .GetString();
             }
+        }
+
+        /***************************************************/
+
+        private static object BuildResponseFormat(IOutputType outputType)
+        {
+            if (outputType == null || outputType is Text)
+                return null;
+
+            if (outputType is JsonObject)
+                return new { type = "json_object" };
+
+            if (outputType is JsonSchema jsonSchema)
+            {
+                if (string.IsNullOrWhiteSpace(jsonSchema.Schema))
+                    return null;
+
+                string schemaName = string.IsNullOrWhiteSpace(jsonSchema.Name) ? "structured_output" : jsonSchema.Name;
+
+                return new
+                {
+                    type = "json_schema",
+                    json_schema = new
+                    {
+                        strict = true,
+                        name = schemaName,
+                        schema = JsonSerializer.Deserialize<JsonElement>(jsonSchema.Schema),
+                    }
+                };
+            }
+
+            return null;
         }
 
         /***************************************************/
