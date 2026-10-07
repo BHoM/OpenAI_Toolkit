@@ -111,26 +111,30 @@ namespace BH.Adapter.OpenAI
             messages.AddRange(user.Select(x => new { role = "user", content = x }));
             messages.AddRange(assistant.Select(x => new { role = "assistant", content = x }));
 
+            //TODO: also response format needs to change
             object responseFormat = BuildResponseFormat(config.OutputType);
             object requestBody;
             if (responseFormat == null)
             {
                 requestBody = new
                 {
-                    messages = messages,
-                    max_tokens = config.MaxTokens,
-                    temperature = config.Temperature,
-                    top_p = config.TopP
+                    //TODO: this need to be variable ofc
+                    model = "gpt-6-astra",
+                    input = messages,
+                    max_output_tokens = config.MaxTokens,
+                    //temperature = config.Temperature,
+                    //top_p = config.TopP
                 };
             }
             else
             {
                 requestBody = new
                 {
-                    messages = messages,
-                    max_tokens = config.MaxTokens,
-                    temperature = config.Temperature,
-                    top_p = config.TopP,
+                    model = "gpt-6-astra",
+                    input = messages,
+                    max_output_tokens = config.MaxTokens,
+                    //temperature = config.Temperature,
+                    //top_p = config.TopP,
                     response_format = responseFormat
                 };
             }
@@ -146,12 +150,28 @@ namespace BH.Adapter.OpenAI
                 dynamic result = JsonSerializer.Deserialize<dynamic>(responseString);
                 response.EnsureSuccessStatusCode();
 
-                return result
-                     .GetProperty("choices")[0]
-                     .GetProperty("message")
-                     .GetProperty("content")
-                     .GetString();
+                return ExtractResponseText(result);
             }
+        }
+
+        private static string ExtractResponseText(JsonElement response)
+        {
+            foreach (JsonElement item in response.GetProperty("output").EnumerateArray())
+            {
+                if (!item.TryGetProperty("content", out JsonElement content))
+                    continue;
+
+                foreach (JsonElement part in content.EnumerateArray())
+                {
+                    if (part.TryGetProperty("type", out JsonElement type) &&
+                    type.GetString() == "output_text")
+                    {
+                        return part.GetProperty("text").GetString();
+                    }
+                }
+            }
+
+            return "";
         }
 
         /***************************************************/
