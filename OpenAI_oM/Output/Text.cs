@@ -24,7 +24,7 @@ using System.ComponentModel;
 
 namespace BH.oM.Adapters.OpenAI.Output
 {
-    [Description("Plain-text model output. No response_format constraint is sent to the API.")]
+    [Description("Plain-text model output. No format constraint is sent to the API.")]
     public class Text : IOutputType
     {
 

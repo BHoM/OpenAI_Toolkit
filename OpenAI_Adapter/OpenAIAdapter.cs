@@ -21,6 +21,8 @@
  */
 
 using BH.oM.Adapters.OpenAI.Authorization;
+using BH.oM.Base.Attributes;
+using System.ComponentModel;
 using System.Net.Http;
 
 namespace BH.Adapter.OpenAI
@@ -31,9 +33,18 @@ namespace BH.Adapter.OpenAI
         /****               Constructors                ****/
         /***************************************************/
 
-        public OpenAIAdapter(string url, IAuthorizationSource credentialsSource)
+        [PreviousVersion("10.0", "BH.Adapter.OpenAI.OpenAIAdapter(System.String, BH.oM.Adapters.OpenAI.Authorization.IAuthorizationSource)")]
+        [Description("Adapter executing prompts against a model deployment through OpenAI's Responses API.")]
+        [Input("url", "URL of the Responses API endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/responses.")]
+        [Input("model", "Name of the model deployment to execute prompts with, e.g. gpt-6-luna.")]
+        [Input("credentialsSource", "Source of the credentials used to authorise the API calls.")]
+        public OpenAIAdapter(string url, string model, IAuthorizationSource credentialsSource)
         {
+            if (url != null && url.Contains("/chat/completions"))
+                BH.Engine.Base.Compute.RecordError("Chat Completions endpoints are not supported, please provide the URL of a Responses API endpoint instead, e.g. https://<resource>.openai.azure.com/openai/v1/responses.");
+
             m_Url = url;
+            m_Model = model;
             m_AuthorizationSource = credentialsSource;
             m_HttpClient = new HttpClient();
         }
@@ -44,6 +55,7 @@ namespace BH.Adapter.OpenAI
         /***************************************************/
 
         private string m_Url;
+        private string m_Model;
         private HttpClient m_HttpClient;
         private IAuthorizationSource m_AuthorizationSource;
         private readonly object m_AuthLock = new object();

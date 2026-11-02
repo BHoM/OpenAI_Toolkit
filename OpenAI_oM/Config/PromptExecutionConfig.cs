@@ -21,31 +21,37 @@
  */
 
 using BH.oM.Adapter;
+using BH.oM.Adapters.OpenAI.Enums;
 using BH.oM.Adapters.OpenAI.Output;
 using System.ComponentModel;
 
 namespace BH.oM.Adapters.OpenAI
 {
-    [Description("Configuration for executing prompts in OpenAI's API.")]
+    [Description("Configuration for executing prompts in OpenAI's Responses API.")]
     public class PromptExecutionConfig : ActionConfig
     {
         /***************************************************/
         /****             Public properties             ****/
         /***************************************************/
 
-        [Description("Temperature setting for the prompt execution, controlling randomness in the output. A higher value (e.g., 1.0) results in more creative responses, while a lower value (e.g., 0.1) makes the output more focused and deterministic.")]
-        public virtual double Temperature { get; set; } = 1.0;
+        [Description("Temperature setting for the prompt execution, controlling randomness in the output. A higher value (e.g., 1.0) results in more creative responses, while a lower value (e.g., 0.1) makes the output more focused and deterministic." +
+                     "\nOnly supported by some models (currently GPT-6 Astra), otherwise ignored with a warning. Leave as NaN to use the model's default.")]
+        public virtual double Temperature { get; set; } = double.NaN;
 
-        [Description("Top-p setting for the prompt execution, controlling diversity in the output. It limits the model to consider only the most probable tokens whose cumulative probability exceeds this value. A value of 1.0 means no restriction, while lower values (e.g., 0.9) restrict the output to a smaller set of tokens.")]
-        public virtual double TopP { get; set; } = 1.0;
+        [Description("Top-p setting for the prompt execution, controlling diversity in the output. It limits the model to consider only the most probable tokens whose cumulative probability exceeds this value. A value of 1.0 means no restriction, while lower values (e.g., 0.9) restrict the output to a smaller set of tokens." +
+                     "\nOnly supported by some models (currently GPT-6 Astra), otherwise ignored with a warning. Leave as NaN to use the model's default.")]
+        public virtual double TopP { get; set; } = double.NaN;
 
-        [Description("Maximum number of tokens to generate in the response. This limits the length of the output, with a typical value being 2048 tokens. Adjusting this can help control the verbosity of the response.")]
-        public virtual int MaxTokens { get; set; } = 2048;
+        [Description("Maximum number of tokens the model can generate, including reasoning tokens that are not part of the visible output. If the limit is reached, the response is incomplete and the prompt execution fails, so leave enough headroom for reasoning.")]
+        public virtual int MaxTokens { get; set; } = 16384;
 
-        [Description("Timeout in seconds for the prompt execution. This setting determines how long the system will wait for a response before timing out. A typical value is 30 seconds, but it can be adjusted based on the expected response time of the API.")]
-        public virtual int TimeoutSeconds { get; set; } = 30;
+        [Description("How much the model reasons before answering. Lower effort is faster and cheaper; Default leaves the choice to the model. Values not supported by the model are ignored with a warning.")]
+        public virtual ReasoningEffort ReasoningEffort { get; set; } = ReasoningEffort.Default;
 
-        [Description("How the model response should be formatted. Defaults to plain text with no response_format constraint.")]
+        [Description("Timeout in seconds for the prompt execution. This setting determines how long the system will wait for a response before timing out. Reasoning models can take noticeably longer to respond than non-reasoning ones.")]
+        public virtual int TimeoutSeconds { get; set; } = 120;
+
+        [Description("How the model response should be formatted. Defaults to plain text with no format constraint.")]
         public virtual IOutputType OutputType { get; set; } = new Text();
 
         /***************************************************/
