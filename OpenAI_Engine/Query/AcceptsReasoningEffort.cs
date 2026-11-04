@@ -38,13 +38,19 @@ namespace BH.Engine.Adapters.OpenAI
 
         [Description("Checks whether the given model accepts the given reasoning effort when executing the given command, as the supported values differ between APIs, e.g. Max is not supported by the Chat Completions API. " + nameof(ReasoningEffort.Default) + " is always accepted, as no reasoning effort is sent to the API in that case. Models not known to the adapter are assumed not to accept any other reasoning effort.")]
         [Input("model", "Name of the model, e.g. gpt-6-luna. A trailing version date, e.g. gpt-6-luna-2026-09-22, is ignored.")]
-        [Input("effort", "Reasoning effort to check.")]
         [Input("command", "Command to be executed with the reasoning effort, e.g. " + nameof(GenerateResponse) + " or " + nameof(GenerateChatCompletion) + ".")]
+        [Input("effort", "Reasoning effort to check.")]
         [Output("accepts", "True if the model accepts the reasoning effort for the command, otherwise false.")]
         public static bool AcceptsReasoningEffort(string model, IExecuteCommand command, ReasoningEffort effort)
         {
             if (effort == ReasoningEffort.Default)
                 return true;
+
+            if (command == null)
+            {
+                BH.Engine.Base.Compute.RecordError("Could not check whether the reasoning effort is accepted because the command is null.");
+                return false;
+            }
 
             if (!m_SupportedReasoningEfforts.TryGetValue(ModelName(model), out HashSet<ReasoningEffort> supported))
                 return false;

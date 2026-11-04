@@ -21,13 +21,14 @@
  */
 
 using BH.oM.Adapter;
+using BH.oM.Adapters.OpenAI.Commands;
 using BH.oM.Adapters.OpenAI.Enums;
 using BH.oM.Adapters.OpenAI.Output;
 using System.ComponentModel;
 
 namespace BH.oM.Adapters.OpenAI
 {
-    [Description("Configuration for executing prompts in OpenAI's Responses API.")]
+    [Description("Configuration for executing prompt commands in OpenAI's API, e.g. " + nameof(GenerateResponse) + " or " + nameof(GenerateChatCompletion) + ".")]
     public class PromptExecutionConfig : ActionConfig
     {
         /***************************************************/

@@ -136,18 +136,12 @@ namespace BH.Adapter.OpenAI
 
             if (outputType is JsonSchema jsonSchema)
             {
-                if (string.IsNullOrWhiteSpace(jsonSchema.Schema))
-                    return null;
+                // The Responses API expects the schema definition flattened into the format object
+                Dictionary<string, object> format = JsonSchemaDefinition(jsonSchema);
+                if (format != null)
+                    format["type"] = "json_schema";
 
-                string schemaName = string.IsNullOrWhiteSpace(jsonSchema.Name) ? "structured_output" : jsonSchema.Name;
-
-                return new
-                {
-                    type = "json_schema",
-                    name = schemaName,
-                    schema = JsonSerializer.Deserialize<JsonElement>(jsonSchema.Schema),
-                    strict = true
-                };
+                return format;
             }
 
             return null;

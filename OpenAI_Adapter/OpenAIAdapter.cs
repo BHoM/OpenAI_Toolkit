@@ -24,6 +24,7 @@ using BH.oM.Adapters.OpenAI.Authorization;
 using BH.oM.Base.Attributes;
 using System.ComponentModel;
 using System.Net.Http;
+using System.Threading;
 
 namespace BH.Adapter.OpenAI
 {
@@ -40,13 +41,17 @@ namespace BH.Adapter.OpenAI
         [Input("credentialsSource", "Source of the credentials used to authorise the API calls.")]
         public OpenAIAdapter(string url, string model, IAuthorizationSource credentialsSource)
         {
-            if (url != null && (url.Contains("?") || url.TrimEnd('/').EndsWith("/responses") || url.TrimEnd('/').EndsWith("/chat/completions")))
+            if (string.IsNullOrWhiteSpace(url))
+                BH.Engine.Base.Compute.RecordError("The URL of the API has not been provided, e.g. https://<resource>.openai.azure.com/openai/v1/.");
+            else if (url.Contains("?") || url.TrimEnd('/').EndsWith("/responses") || url.TrimEnd('/').EndsWith("/chat/completions"))
                 BH.Engine.Base.Compute.RecordError("The URL should be the base URL of the API rather than a specific endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/.");
 
-            m_Url = url == null ? null : url.TrimEnd('/') + "/";
+            m_Url = url?.TrimEnd('/') + "/";
             m_Model = model;
             m_AuthorizationSource = credentialsSource;
-            m_HttpClient = new HttpClient();
+
+            // Request timeouts are controlled per command, so the client's own 100 second limit is lifted
+            m_HttpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         }
 
 

@@ -118,21 +118,12 @@ namespace BH.Adapter.OpenAI
 
             if (outputType is JsonSchema jsonSchema)
             {
-                if (string.IsNullOrWhiteSpace(jsonSchema.Schema))
+                // The Chat Completions API expects the schema definition nested under json_schema
+                Dictionary<string, object> definition = JsonSchemaDefinition(jsonSchema);
+                if (definition == null)
                     return null;
 
-                string schemaName = string.IsNullOrWhiteSpace(jsonSchema.Name) ? "structured_output" : jsonSchema.Name;
-
-                return new
-                {
-                    type = "json_schema",
-                    json_schema = new
-                    {
-                        name = schemaName,
-                        schema = JsonSerializer.Deserialize<JsonElement>(jsonSchema.Schema),
-                        strict = true
-                    }
-                };
+                return new { type = "json_schema", json_schema = definition };
             }
 
             return null;

@@ -24,6 +24,7 @@ using BH.Engine.Adapters.OpenAI;
 using BH.oM.Adapter;
 using BH.oM.Adapters.OpenAI;
 using BH.oM.Adapters.OpenAI.Enums;
+using BH.oM.Adapters.OpenAI.Output;
 using BH.oM.Base;
 using System;
 using System.Collections.Generic;
@@ -107,13 +108,20 @@ namespace BH.Adapter.OpenAI
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authCode);
                 request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-                using (HttpResponseMessage response = await m_HttpClient.SendAsync(request, cts.Token).ConfigureAwait(false))
+                try
                 {
-                    string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    if (!response.IsSuccessStatusCode)
-                        throw new HttpRequestException($"Request failed with status code {(int)response.StatusCode} ({response.ReasonPhrase}): {ErrorMessage(responseString)}");
+                    using (HttpResponseMessage response = await m_HttpClient.SendAsync(request, cts.Token).ConfigureAwait(false))
+                    {
+                        string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        if (!response.IsSuccessStatusCode)
+                            throw new HttpRequestException($"Request failed with status code {(int)response.StatusCode} ({response.ReasonPhrase}): {ErrorMessage(responseString)}");
 
-                    return responseString;
+                        return responseString;
+                    }
+                }
+                catch (OperationCanceledException) when (cts.IsCancellationRequested)
+                {
+                    throw new TimeoutException($"The request timed out after {timeoutSeconds} seconds. Increase {nameof(PromptExecutionConfig.TimeoutSeconds)} in the {nameof(PromptExecutionConfig)} if the model needs more time to respond.");
                 }
             }
         }
@@ -176,6 +184,21 @@ namespace BH.Adapter.OpenAI
             }
 
             return config.ReasoningEffort.ToString().ToLowerInvariant();
+        }
+
+        /***************************************************/
+
+        private static Dictionary<string, object> JsonSchemaDefinition(JsonSchema jsonSchema)
+        {
+            if (string.IsNullOrWhiteSpace(jsonSchema?.Schema))
+                return null;
+
+            return new Dictionary<string, object>
+            {
+                { "name", string.IsNullOrWhiteSpace(jsonSchema.Name) ? "structured_output" : jsonSchema.Name },
+                { "schema", JsonSerializer.Deserialize<JsonElement>(jsonSchema.Schema) },
+                { "strict", true }
+            };
         }
 
         /***************************************************/

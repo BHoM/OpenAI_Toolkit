@@ -45,7 +45,7 @@ namespace BH.oM.Adapters.OpenAI.Enums
         [Description("Extra high reasoning effort. Supported only by some models.")]
         XHigh,
 
-        [Description("Maximum reasoning effort. Supported only by some models.")]
+        [Description("Maximum reasoning effort. Supported only by some models, and not with the Chat Completions API.")]
         Max
     }
 }
