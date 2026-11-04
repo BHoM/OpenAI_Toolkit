@@ -131,9 +131,6 @@ namespace BH.Adapter.OpenAI
             if (outputType == null || outputType is Text)
                 return null;
 
-            if (outputType is JsonObject)
-                return new { type = "json_object" };
-
             if (outputType is JsonSchema jsonSchema)
             {
                 // The Responses API expects the schema definition flattened into the format object

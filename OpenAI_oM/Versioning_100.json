@@ -43,7 +43,7 @@
     }
   },
   "MessageForDeleted": {
-
+    "BH.oM.Adapters.OpenAI.Output.JsonObject": "JsonObject output has been removed because JSON mode is superseded by structured outputs. Please use JsonSchema instead, which also returns valid JSON and additionally enforces its shape."
   },
   "MessageForNoUpgrade": {
 
