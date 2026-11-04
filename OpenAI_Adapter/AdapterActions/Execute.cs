@@ -23,9 +23,7 @@
 using BH.Engine.Adapters.OpenAI;
 using BH.oM.Adapter;
 using BH.oM.Adapters.OpenAI;
-using BH.oM.Adapters.OpenAI.Commands;
 using BH.oM.Adapters.OpenAI.Enums;
-using BH.oM.Adapters.OpenAI.Output;
 using BH.oM.Base;
 using System;
 using System.Collections.Generic;
@@ -47,27 +45,7 @@ namespace BH.Adapter.OpenAI
 
         public override Output<List<object>, bool> Execute(IExecuteCommand command, ActionConfig actionConfig = null)
         {
-            return Execute(command as dynamic, actionConfig);
-        }
-
-
-        /***************************************************/
-        /****              Public methods               ****/
-        /***************************************************/
-
-        public async Task<Output<string, bool>> ExecuteAsync(ExecutePrompt command, ActionConfig actionConfig = null)
-        {
-            PromptExecutionConfig config = actionConfig as PromptExecutionConfig ?? new PromptExecutionConfig();
-
-            try
-            {
-                return new Output<string, bool> { Item1 = await PromptAsync(command.System, command.User, command.Assistant, config).ConfigureAwait(false), Item2 = true };
-            }
-            catch (Exception ex)
-            {
-                BH.Engine.Base.Compute.RecordError($"OpenAI prompt execution failed with the following exception:\n{ex.Message}");
-                return new Output<string, bool> { Item1 = "", Item2 = false };
-            }
+            return RunCommand(command as dynamic, actionConfig);
         }
 
 
@@ -75,19 +53,41 @@ namespace BH.Adapter.OpenAI
         /****              Private methods              ****/
         /***************************************************/
 
-        private Output<List<object>, bool> Execute(ExecutePrompt command, ActionConfig actionConfig = null)
+        private Output<List<object>, bool> RunCommand(IExecuteCommand command, ActionConfig actionConfig = null)
         {
-            Output<string, bool> promptResult = ExecuteAsync(command, actionConfig).Result;
-            List<object> toReturn = new List<object>();
-            if (promptResult.Item2)
-                toReturn.Add(promptResult.Item1);
-
-            return new Output<List<object>, bool> { Item1 = toReturn, Item2 = promptResult.Item2 };
+            BH.Engine.Base.Compute.RecordError($"Command of type {command?.GetType().Name} is not supported by the {nameof(OpenAIAdapter)}.");
+            return new Output<List<object>, bool> { Item1 = new List<object>(), Item2 = false };
         }
 
         /***************************************************/
 
-        private async Task<string> PromptAsync(string system, IEnumerable<string> user, IEnumerable<string> assistant, PromptExecutionConfig config)
+        private static Output<List<object>, bool> ExecuteOutput(Output<string, bool> result)
+        {
+            List<object> toReturn = new List<object>();
+            if (result.Item2)
+                toReturn.Add(result.Item1);
+
+            return new Output<List<object>, bool> { Item1 = toReturn, Item2 = result.Item2 };
+        }
+
+        /***************************************************/
+
+        private static async Task<Output<string, bool>> ExecuteSafelyAsync(Func<Task<string>> execution)
+        {
+            try
+            {
+                return new Output<string, bool> { Item1 = await execution().ConfigureAwait(false), Item2 = true };
+            }
+            catch (Exception ex)
+            {
+                BH.Engine.Base.Compute.RecordError($"OpenAI command execution failed with the following exception:\n{ex.Message}");
+                return new Output<string, bool> { Item1 = "", Item2 = false };
+            }
+        }
+
+        /***************************************************/
+
+        private async Task<string> PostAsync(string endpoint, Dictionary<string, object> requestBody, int timeoutSeconds)
         {
             if (string.IsNullOrWhiteSpace(m_Model))
                 throw new InvalidOperationException("No model deployment name has been provided to the adapter.");
@@ -99,18 +99,13 @@ namespace BH.Adapter.OpenAI
             }
 
             if (string.IsNullOrWhiteSpace(authCode))
-            {
-                BH.Engine.Base.Compute.RecordError("Cannot execute the prompt because user authorisation failed.");
-                return "";
-            }
+                throw new InvalidOperationException("User authorisation failed.");
 
-            string json = JsonSerializer.Serialize(RequestBody(system, user, assistant, config));
-
-            using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, m_Url))
-            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(config.TimeoutSeconds)))
+            using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, m_Url + endpoint))
+            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds)))
             {
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authCode);
-                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
                 using (HttpResponseMessage response = await m_HttpClient.SendAsync(request, cts.Token).ConfigureAwait(false))
                 {
@@ -118,53 +113,9 @@ namespace BH.Adapter.OpenAI
                     if (!response.IsSuccessStatusCode)
                         throw new HttpRequestException($"Request failed with status code {(int)response.StatusCode} ({response.ReasonPhrase}): {ErrorMessage(responseString)}");
 
-                    return ExtractResponseText(responseString);
+                    return responseString;
                 }
             }
-        }
-
-        /***************************************************/
-
-        private Dictionary<string, object> RequestBody(string system, IEnumerable<string> user, IEnumerable<string> assistant, PromptExecutionConfig config)
-        {
-            Dictionary<string, object> requestBody = new Dictionary<string, object>
-            {
-                { "model", m_Model },
-                { "input", InputMessages(system, user, assistant) },
-                { "max_output_tokens", config.MaxTokens },
-                { "store", false }
-            };
-
-            if (!double.IsNaN(config.Temperature))
-            {
-                if (Query.AcceptsTemperature(m_Model))
-                    requestBody["temperature"] = config.Temperature;
-                else
-                    BH.Engine.Base.Compute.RecordWarning($"{nameof(PromptExecutionConfig.Temperature)} is ignored because model {m_Model} does not support it.");
-            }
-
-            if (!double.IsNaN(config.TopP))
-            {
-                if (Query.AcceptsTopP(m_Model))
-                    requestBody["top_p"] = config.TopP;
-                else
-                    BH.Engine.Base.Compute.RecordWarning($"{nameof(PromptExecutionConfig.TopP)} is ignored because model {m_Model} does not support it.");
-            }
-
-            string effort = ReasoningEffortValue(config.ReasoningEffort);
-            if (effort != null)
-            {
-                if (Query.AcceptsReasoningEffort(m_Model, config.ReasoningEffort))
-                    requestBody["reasoning"] = new { effort = effort };
-                else
-                    BH.Engine.Base.Compute.RecordWarning($"{nameof(PromptExecutionConfig.ReasoningEffort)} {config.ReasoningEffort} is ignored because model {m_Model} does not support it, so the model's default reasoning effort is used.");
-            }
-
-            object textFormat = BuildTextFormat(config.OutputType);
-            if (textFormat != null)
-                requestBody["text"] = new { format = textFormat };
-
-            return requestBody;
         }
 
         /***************************************************/
@@ -192,41 +143,39 @@ namespace BH.Adapter.OpenAI
 
         /***************************************************/
 
-        private static string ExtractResponseText(string responseString)
+        private void AddSamplingParameters(Dictionary<string, object> requestBody, PromptExecutionConfig config)
         {
-            JsonElement response = JsonSerializer.Deserialize<JsonElement>(responseString);
-
-            string status = response.TryGetProperty("status", out JsonElement statusElement) ? statusElement.GetString() : null;
-            if (status == "failed")
-                throw new InvalidOperationException($"The response failed: {ErrorMessage(responseString)}");
-
-            if (status == "incomplete")
+            if (!double.IsNaN(config.Temperature))
             {
-                string reason = "unknown";
-                if (response.TryGetProperty("incomplete_details", out JsonElement details) && details.ValueKind == JsonValueKind.Object && details.TryGetProperty("reason", out JsonElement reasonElement))
-                    reason = reasonElement.GetString();
-
-                throw new InvalidOperationException($"The response is incomplete (reason: {reason}). If the reason is max_output_tokens, increase {nameof(PromptExecutionConfig.MaxTokens)} or lower {nameof(PromptExecutionConfig.ReasoningEffort)} in the {nameof(PromptExecutionConfig)}.");
+                if (Query.AcceptsTemperature(m_Model))
+                    requestBody["temperature"] = config.Temperature;
+                else
+                    BH.Engine.Base.Compute.RecordWarning($"{nameof(PromptExecutionConfig.Temperature)} is ignored because model {m_Model} does not support it.");
             }
 
-            StringBuilder text = new StringBuilder();
-            foreach (JsonElement item in response.GetProperty("output").EnumerateArray())
+            if (!double.IsNaN(config.TopP))
             {
-                // Reasoning and tool call items carry no text output
-                if (!item.TryGetProperty("type", out JsonElement itemType) || itemType.GetString() != "message" || !item.TryGetProperty("content", out JsonElement content))
-                    continue;
+                if (Query.AcceptsTopP(m_Model))
+                    requestBody["top_p"] = config.TopP;
+                else
+                    BH.Engine.Base.Compute.RecordWarning($"{nameof(PromptExecutionConfig.TopP)} is ignored because model {m_Model} does not support it.");
+            }
+        }
 
-                foreach (JsonElement part in content.EnumerateArray())
-                {
-                    string partType = part.TryGetProperty("type", out JsonElement partTypeElement) ? partTypeElement.GetString() : null;
-                    if (partType == "output_text")
-                        text.Append(part.GetProperty("text").GetString());
-                    else if (partType == "refusal")
-                        throw new InvalidOperationException($"The model refused to respond: {part.GetProperty("refusal").GetString()}");
-                }
+        /***************************************************/
+
+        private string SupportedReasoningEffort(PromptExecutionConfig config, IExecuteCommand command)
+        {
+            if (config.ReasoningEffort == ReasoningEffort.Default)
+                return null;
+
+            if (!Query.AcceptsReasoningEffort(m_Model, command, config.ReasoningEffort))
+            {
+                BH.Engine.Base.Compute.RecordWarning($"{nameof(PromptExecutionConfig.ReasoningEffort)} {config.ReasoningEffort} is ignored because model {m_Model} does not support it with {command?.GetType().Name}, so the model's default reasoning effort is used.");
+                return null;
             }
 
-            return text.ToString();
+            return config.ReasoningEffort.ToString().ToLowerInvariant();
         }
 
         /***************************************************/
@@ -247,45 +196,6 @@ namespace BH.Adapter.OpenAI
             }
 
             return responseString;
-        }
-
-        /***************************************************/
-
-        private static string ReasoningEffortValue(ReasoningEffort effort)
-        {
-            if (effort == ReasoningEffort.Default)
-                return null;
-
-            return effort.ToString().ToLowerInvariant();
-        }
-
-        /***************************************************/
-
-        private static object BuildTextFormat(IOutputType outputType)
-        {
-            if (outputType == null || outputType is Text)
-                return null;
-
-            if (outputType is JsonObject)
-                return new { type = "json_object" };
-
-            if (outputType is JsonSchema jsonSchema)
-            {
-                if (string.IsNullOrWhiteSpace(jsonSchema.Schema))
-                    return null;
-
-                string schemaName = string.IsNullOrWhiteSpace(jsonSchema.Name) ? "structured_output" : jsonSchema.Name;
-
-                return new
-                {
-                    type = "json_schema",
-                    name = schemaName,
-                    schema = JsonSerializer.Deserialize<JsonElement>(jsonSchema.Schema),
-                    strict = true
-                };
-            }
-
-            return null;
         }
 
         /***************************************************/

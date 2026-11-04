@@ -20,6 +20,8 @@
  * along with this code. If not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using BH.oM.Adapter;
+using BH.oM.Adapters.OpenAI.Commands;
 using BH.oM.Adapters.OpenAI.Enums;
 using BH.oM.Base.Attributes;
 using System.Collections.Generic;
@@ -34,16 +36,20 @@ namespace BH.Engine.Adapters.OpenAI
         /****              Public methods               ****/
         /***************************************************/
 
-        [Description("Checks whether the given model accepts the given reasoning effort. " + nameof(ReasoningEffort.Default) + " is always accepted, as no reasoning effort is sent to the API in that case. Models not known to the adapter are assumed to accept any reasoning effort.")]
+        [Description("Checks whether the given model accepts the given reasoning effort when executing the given command, as the supported values differ between APIs, e.g. Max is not supported by the Chat Completions API. " + nameof(ReasoningEffort.Default) + " is always accepted, as no reasoning effort is sent to the API in that case. Models not known to the adapter are assumed not to accept any other reasoning effort.")]
         [Input("model", "Name of the model, e.g. gpt-6-luna. A trailing version date, e.g. gpt-6-luna-2026-09-22, is ignored.")]
         [Input("effort", "Reasoning effort to check.")]
-        [Output("accepts", "True if the model accepts the reasoning effort, otherwise false.")]
-        public static bool AcceptsReasoningEffort(string model, ReasoningEffort effort)
+        [Input("command", "Command to be executed with the reasoning effort, e.g. " + nameof(GenerateResponse) + " or " + nameof(GenerateChatCompletion) + ".")]
+        [Output("accepts", "True if the model accepts the reasoning effort for the command, otherwise false.")]
+        public static bool AcceptsReasoningEffort(string model, IExecuteCommand command, ReasoningEffort effort)
         {
             if (effort == ReasoningEffort.Default)
                 return true;
 
             if (!m_SupportedReasoningEfforts.TryGetValue(ModelName(model), out HashSet<ReasoningEffort> supported))
+                return false;
+
+            if (!command.IAcceptsReasoningEffort(effort))
                 return false;
 
             return supported.Contains(effort);
@@ -52,6 +58,34 @@ namespace BH.Engine.Adapters.OpenAI
 
         /***************************************************/
         /****              Private methods              ****/
+        /***************************************************/
+
+        private static bool IAcceptsReasoningEffort(this IExecuteCommand command, ReasoningEffort effort)
+        {
+            return AcceptsReasoningEffort(command as dynamic, effort);
+        }
+
+        /***************************************************/
+
+        private static bool AcceptsReasoningEffort(GenerateChatCompletion command, ReasoningEffort effort)
+        {
+            return effort != ReasoningEffort.Max;
+        }
+
+        /***************************************************/
+
+        private static bool AcceptsReasoningEffort(GenerateResponse command, ReasoningEffort effort)
+        {
+            return true;
+        }
+
+        /***************************************************/
+
+        private static bool AcceptsReasoningEffort(IExecuteCommand command, ReasoningEffort effort)
+        {
+            return false;
+        }
+
         /***************************************************/
 
         private static string ModelName(string model)

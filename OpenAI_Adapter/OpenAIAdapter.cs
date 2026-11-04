@@ -34,16 +34,16 @@ namespace BH.Adapter.OpenAI
         /***************************************************/
 
         [PreviousVersion("10.0", "BH.Adapter.OpenAI.OpenAIAdapter(System.String, BH.oM.Adapters.OpenAI.Authorization.IAuthorizationSource)")]
-        [Description("Adapter executing prompts against a model deployment through OpenAI's Responses API.")]
-        [Input("url", "URL of the Responses API endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/responses.")]
-        [Input("model", "Name of the model deployment to execute prompts with, e.g. gpt-6-luna.")]
+        [Description("Adapter executing commands against a model deployment through OpenAI's API, e.g. generating responses or chat completions.")]
+        [Input("url", "Base URL of the OpenAI v1 API, to which each command appends its own endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/ for Azure or https://api.openai.com/v1/ for OpenAI.")]
+        [Input("model", "Name of the model deployment to execute commands with, e.g. gpt-6-luna.")]
         [Input("credentialsSource", "Source of the credentials used to authorise the API calls.")]
         public OpenAIAdapter(string url, string model, IAuthorizationSource credentialsSource)
         {
-            if (url != null && url.Contains("/chat/completions"))
-                BH.Engine.Base.Compute.RecordError("Chat Completions endpoints are not supported, please provide the URL of a Responses API endpoint instead, e.g. https://<resource>.openai.azure.com/openai/v1/responses.");
+            if (url != null && (url.Contains("?") || url.TrimEnd('/').EndsWith("/responses") || url.TrimEnd('/').EndsWith("/chat/completions")))
+                BH.Engine.Base.Compute.RecordError("The URL should be the base URL of the API rather than a specific endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/.");
 
-            m_Url = url;
+            m_Url = url == null ? null : url.TrimEnd('/') + "/";
             m_Model = model;
             m_AuthorizationSource = credentialsSource;
             m_HttpClient = new HttpClient();
