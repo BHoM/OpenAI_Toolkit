@@ -1,0 +1,51 @@
+{
+  "Namespace": {
+    "ToNew": {
+
+    },
+    "ToOld": {
+
+    }
+  },
+  "Type": {
+    "ToNew": {
+      "BH.oM.Adapters.OpenAI.Commands.ExecutePrompt": "BH.oM.Adapters.OpenAI.Commands.GenerateChatCompletion"
+    },
+    "ToOld": {
+      "BH.oM.Adapters.OpenAI.Commands.GenerateChatCompletion": "BH.oM.Adapters.OpenAI.Commands.ExecutePrompt"
+    }
+  },
+  "Method": {
+    "ToNew": {
+
+    },
+    "ToOld": {
+
+    }
+  },
+  "Property": {
+    "ToNew": {
+
+    },
+    "ToOld": {
+
+    }
+  },
+  "Dataset": {
+    "ToNew": {
+
+    },
+    "ToOld": {
+
+    },
+    "MessageForDeleted": {
+
+    }
+  },
+  "MessageForDeleted": {
+    "BH.oM.Adapters.OpenAI.Output.JsonObject": "JsonObject output has been removed because JSON mode is superseded by structured outputs. Please use JsonSchema instead, which also returns valid JSON and additionally enforces its shape."
+  },
+  "MessageForNoUpgrade": {
+
+  }
+}

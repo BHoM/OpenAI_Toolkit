@@ -21,7 +21,10 @@
  */
 
 using BH.oM.Adapters.OpenAI.Authorization;
+using BH.oM.Base.Attributes;
+using System.ComponentModel;
 using System.Net.Http;
+using System.Threading;
 
 namespace BH.Adapter.OpenAI
 {
@@ -31,11 +34,24 @@ namespace BH.Adapter.OpenAI
         /****               Constructors                ****/
         /***************************************************/
 
-        public OpenAIAdapter(string url, IAuthorizationSource credentialsSource)
+        [PreviousVersion("10.0", "BH.Adapter.OpenAI.OpenAIAdapter(System.String, BH.oM.Adapters.OpenAI.Authorization.IAuthorizationSource)")]
+        [Description("Adapter executing commands against a model deployment through OpenAI's API, e.g. generating responses or chat completions.")]
+        [Input("url", "Base URL of the OpenAI v1 API, to which each command appends its own endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/ for Azure or https://api.openai.com/v1/ for OpenAI.")]
+        [Input("model", "Name of the model deployment to execute commands with, e.g. gpt-6-luna.")]
+        [Input("credentialsSource", "Source of the credentials used to authorise the API calls.")]
+        public OpenAIAdapter(string url, string model, IAuthorizationSource credentialsSource)
         {
-            m_Url = url;
+            if (string.IsNullOrWhiteSpace(url))
+                BH.Engine.Base.Compute.RecordError("The URL of the API has not been provided, e.g. https://<resource>.openai.azure.com/openai/v1/.");
+            else if (url.Contains("?") || url.TrimEnd('/').EndsWith("/responses") || url.TrimEnd('/').EndsWith("/chat/completions"))
+                BH.Engine.Base.Compute.RecordError("The URL should be the base URL of the API rather than a specific endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/.");
+
+            m_Url = url?.TrimEnd('/') + "/";
+            m_Model = model;
             m_AuthorizationSource = credentialsSource;
-            m_HttpClient = new HttpClient();
+
+            // Request timeouts are controlled per command, so the client's own 100 second limit is lifted
+            m_HttpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         }
 
 
@@ -44,6 +60,7 @@ namespace BH.Adapter.OpenAI
         /***************************************************/
 
         private string m_Url;
+        private string m_Model;
         private HttpClient m_HttpClient;
         private IAuthorizationSource m_AuthorizationSource;
         private readonly object m_AuthLock = new object();

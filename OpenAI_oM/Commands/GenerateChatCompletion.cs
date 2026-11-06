@@ -20,13 +20,30 @@
  * along with this code. If not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.      
  */
 
+using BH.oM.Adapter;
+using BH.oM.Base;
+using System.Collections.Generic;
 using System.ComponentModel;
 
-namespace BH.oM.Adapters.OpenAI.Output
+namespace BH.oM.Adapters.OpenAI.Commands
 {
-    [Description("JSON object output. The API is asked to return valid JSON, but no schema is enforced.")]
-    public class JsonObject : IOutputType
+    [Description("Command generating a model response to a prompt with the Chat Completions API, e.g. for models or services that do not support the Responses API. Allows for continuous chats by providing previous messages and responses to " + nameof(User) + " and " + nameof(Assistant) + ", respectively.")]
+    public class GenerateChatCompletion : IExecuteCommand, IObject
     {
+        /***************************************************/
+        /****             Public properties             ****/
+        /***************************************************/
 
+        [Description("System message to be used in the prompt execution.")]
+        public virtual string System { get; set; } = "";
+
+        [Description("User messages within chat thread, from oldest to the latest, should always be one more than " + nameof(Assistant) + ".")]
+        public virtual List<string> User { get; set; } = new List<string>();
+
+        [Description("LLM responses within chat thread, from oldest to the latest, should always be one less than " + nameof(User) + ".")]
+        public virtual List<string> Assistant { get; set; } = new List<string>();
+
+        /***************************************************/
     }
 }
+

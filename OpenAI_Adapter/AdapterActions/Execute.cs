@@ -23,13 +23,14 @@
 using BH.Engine.Adapters.OpenAI;
 using BH.oM.Adapter;
 using BH.oM.Adapters.OpenAI;
-using BH.oM.Adapters.OpenAI.Commands;
+using BH.oM.Adapters.OpenAI.Enums;
 using BH.oM.Adapters.OpenAI.Output;
 using BH.oM.Base;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -45,27 +46,7 @@ namespace BH.Adapter.OpenAI
 
         public override Output<List<object>, bool> Execute(IExecuteCommand command, ActionConfig actionConfig = null)
         {
-            return Execute(command as dynamic, actionConfig);
-        }
-
-
-        /***************************************************/
-        /****              Public methods               ****/
-        /***************************************************/
-
-        public async Task<Output<string, bool>> ExecuteAsync(ExecutePrompt command, ActionConfig actionConfig = null)
-        {
-            PromptExecutionConfig config = actionConfig as PromptExecutionConfig ?? new PromptExecutionConfig();
-
-            try
-            {
-                return new Output<string, bool> { Item1 = await PromptAsync(command.System, command.User, command.Assistant, config).ConfigureAwait(false), Item2 = true };
-            }
-            catch (Exception ex)
-            {
-                BH.Engine.Base.Compute.RecordError($"OpenAI prompt execution failed with the following exception:\n{ex.Message}");
-                return new Output<string, bool> { Item1 = "", Item2 = false };
-            }
+            return RunCommand(command as dynamic, actionConfig);
         }
 
 
@@ -73,117 +54,171 @@ namespace BH.Adapter.OpenAI
         /****              Private methods              ****/
         /***************************************************/
 
-        private Output<List<object>, bool> Execute(ExecutePrompt command, ActionConfig actionConfig = null)
+        private Output<List<object>, bool> RunCommand(IExecuteCommand command, ActionConfig actionConfig = null)
         {
-            Output<string, bool> promptResult = ExecuteAsync(command, actionConfig).Result;
-            List<object> toReturn = new List<object>();
-            if (promptResult.Item2)
-                toReturn.Add(promptResult.Item1);
-
-            return new Output<List<object>, bool> { Item1 = toReturn, Item2 = promptResult.Item2 };
+            BH.Engine.Base.Compute.RecordError($"Command of type {command?.GetType().Name} is not supported by the {nameof(OpenAIAdapter)}.");
+            return new Output<List<object>, bool> { Item1 = new List<object>(), Item2 = false };
         }
 
         /***************************************************/
 
-        private async Task<string> PromptAsync(string system, IEnumerable<string> user, IEnumerable<string> assistant, PromptExecutionConfig config)
+        private static Output<List<object>, bool> ExecuteOutput(Output<string, bool> result)
         {
+            List<object> toReturn = new List<object>();
+            if (result.Item2)
+                toReturn.Add(result.Item1);
+
+            return new Output<List<object>, bool> { Item1 = toReturn, Item2 = result.Item2 };
+        }
+
+        /***************************************************/
+
+        private static async Task<Output<string, bool>> ExecuteSafelyAsync(Func<Task<string>> execution)
+        {
+            try
+            {
+                return new Output<string, bool> { Item1 = await execution().ConfigureAwait(false), Item2 = true };
+            }
+            catch (Exception ex)
+            {
+                BH.Engine.Base.Compute.RecordError($"OpenAI command execution failed with the following exception:\n{ex.Message}");
+                return new Output<string, bool> { Item1 = "", Item2 = false };
+            }
+        }
+
+        /***************************************************/
+
+        private async Task<string> PostAsync(string endpoint, Dictionary<string, object> requestBody, int timeoutSeconds)
+        {
+            if (string.IsNullOrWhiteSpace(m_Model))
+                throw new InvalidOperationException("No model deployment name has been provided to the adapter.");
+
+            string authCode;
             lock (m_AuthLock)
             {
-                string authCode = m_AuthorizationSource.IAuthorizationCode();
-                if (string.IsNullOrWhiteSpace(authCode))
+                authCode = m_AuthorizationSource.IAuthorizationCode();
+            }
+
+            if (string.IsNullOrWhiteSpace(authCode))
+                throw new InvalidOperationException("User authorisation failed.");
+
+            using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, m_Url + endpoint))
+            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds)))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authCode);
+                request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+                try
                 {
-                    BH.Engine.Base.Compute.RecordError("Cannot execute the prompt because user authorisation failed.");
-                    return "";
+                    using (HttpResponseMessage response = await m_HttpClient.SendAsync(request, cts.Token).ConfigureAwait(false))
+                    {
+                        string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        if (!response.IsSuccessStatusCode)
+                            throw new HttpRequestException($"Request failed with status code {(int)response.StatusCode} ({response.ReasonPhrase}): {ErrorMessage(responseString)}");
+
+                        return responseString;
+                    }
                 }
-
-                if (authCode != m_HttpClient?.DefaultRequestHeaders?.Authorization?.Parameter)
+                catch (OperationCanceledException) when (cts.IsCancellationRequested)
                 {
-                    m_HttpClient.DefaultRequestHeaders.Clear();
-                    m_HttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {authCode}");
+                    throw new TimeoutException($"The request timed out after {timeoutSeconds} seconds. Increase {nameof(PromptExecutionConfig.TimeoutSeconds)} in the {nameof(PromptExecutionConfig)} if the model needs more time to respond.");
                 }
-            }
-
-            List<object> messages = new List<object>
-            {
-                new { role = "system", content = system },
-            };
-
-            messages.AddRange(user.Select(x => new { role = "user", content = x }));
-            messages.AddRange(assistant.Select(x => new { role = "assistant", content = x }));
-
-            object responseFormat = BuildResponseFormat(config.OutputType);
-            object requestBody;
-            if (responseFormat == null)
-            {
-                requestBody = new
-                {
-                    messages = messages,
-                    max_tokens = config.MaxTokens,
-                    temperature = config.Temperature,
-                    top_p = config.TopP
-                };
-            }
-            else
-            {
-                requestBody = new
-                {
-                    messages = messages,
-                    max_tokens = config.MaxTokens,
-                    temperature = config.Temperature,
-                    top_p = config.TopP,
-                    response_format = responseFormat
-                };
-            }
-
-            string json = JsonSerializer.Serialize(requestBody);
-            StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(config.TimeoutSeconds)))
-            {
-                HttpResponseMessage response = await m_HttpClient.PostAsync(m_Url, content, cts.Token).ConfigureAwait(false);
-
-                string responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                dynamic result = JsonSerializer.Deserialize<dynamic>(responseString);
-                response.EnsureSuccessStatusCode();
-
-                return result
-                     .GetProperty("choices")[0]
-                     .GetProperty("message")
-                     .GetProperty("content")
-                     .GetString();
             }
         }
 
         /***************************************************/
 
-        private static object BuildResponseFormat(IOutputType outputType)
+        private static List<object> InputMessages(string system, IEnumerable<string> user, IEnumerable<string> assistant)
         {
-            if (outputType == null || outputType is Text)
-                return null;
+            List<object> messages = new List<object>();
+            if (!string.IsNullOrWhiteSpace(system))
+                messages.Add(new { role = "system", content = system });
 
-            if (outputType is JsonObject)
-                return new { type = "json_object" };
-
-            if (outputType is JsonSchema jsonSchema)
+            // User and assistant messages alternate within a chat thread, starting and ending with a user message
+            List<string> userMessages = user?.ToList() ?? new List<string>();
+            List<string> assistantMessages = assistant?.ToList() ?? new List<string>();
+            for (int i = 0; i < Math.Max(userMessages.Count, assistantMessages.Count); i++)
             {
-                if (string.IsNullOrWhiteSpace(jsonSchema.Schema))
-                    return null;
+                if (i < userMessages.Count)
+                    messages.Add(new { role = "user", content = userMessages[i] });
 
-                string schemaName = string.IsNullOrWhiteSpace(jsonSchema.Name) ? "structured_output" : jsonSchema.Name;
-
-                return new
-                {
-                    type = "json_schema",
-                    json_schema = new
-                    {
-                        strict = true,
-                        name = schemaName,
-                        schema = JsonSerializer.Deserialize<JsonElement>(jsonSchema.Schema),
-                    }
-                };
+                if (i < assistantMessages.Count)
+                    messages.Add(new { role = "assistant", content = assistantMessages[i] });
             }
 
-            return null;
+            return messages;
+        }
+
+        /***************************************************/
+
+        private void AddSamplingParameters(Dictionary<string, object> requestBody, PromptExecutionConfig config)
+        {
+            if (!double.IsNaN(config.Temperature))
+            {
+                if (Query.AcceptsTemperature(m_Model))
+                    requestBody["temperature"] = config.Temperature;
+                else
+                    BH.Engine.Base.Compute.RecordWarning($"{nameof(PromptExecutionConfig.Temperature)} is ignored because model {m_Model} does not support it.");
+            }
+
+            if (!double.IsNaN(config.TopP))
+            {
+                if (Query.AcceptsTopP(m_Model))
+                    requestBody["top_p"] = config.TopP;
+                else
+                    BH.Engine.Base.Compute.RecordWarning($"{nameof(PromptExecutionConfig.TopP)} is ignored because model {m_Model} does not support it.");
+            }
+        }
+
+        /***************************************************/
+
+        private string SupportedReasoningEffort(PromptExecutionConfig config, IExecuteCommand command)
+        {
+            if (config.ReasoningEffort == ReasoningEffort.Default)
+                return null;
+
+            if (!Query.AcceptsReasoningEffort(m_Model, command, config.ReasoningEffort))
+            {
+                BH.Engine.Base.Compute.RecordWarning($"{nameof(PromptExecutionConfig.ReasoningEffort)} {config.ReasoningEffort} is ignored because model {m_Model} does not support it with {command?.GetType().Name}, so the model's default reasoning effort is used.");
+                return null;
+            }
+
+            return config.ReasoningEffort.ToString().ToLowerInvariant();
+        }
+
+        /***************************************************/
+
+        private static Dictionary<string, object> JsonSchemaDefinition(JsonSchema jsonSchema)
+        {
+            if (string.IsNullOrWhiteSpace(jsonSchema?.Schema))
+                return null;
+
+            return new Dictionary<string, object>
+            {
+                { "name", string.IsNullOrWhiteSpace(jsonSchema.Name) ? "structured_output" : jsonSchema.Name },
+                { "schema", JsonSerializer.Deserialize<JsonElement>(jsonSchema.Schema) },
+                { "strict", true }
+            };
+        }
+
+        /***************************************************/
+
+        private static string ErrorMessage(string responseString)
+        {
+            try
+            {
+                JsonElement response = JsonSerializer.Deserialize<JsonElement>(responseString);
+                if (response.ValueKind == JsonValueKind.Object
+                    && response.TryGetProperty("error", out JsonElement error)
+                    && error.ValueKind == JsonValueKind.Object
+                    && error.TryGetProperty("message", out JsonElement message))
+                    return message.GetString();
+            }
+            catch (JsonException)
+            {
+            }
+
+            return responseString;
         }
 
         /***************************************************/

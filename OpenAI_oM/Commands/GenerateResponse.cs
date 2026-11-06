@@ -27,8 +27,8 @@ using System.ComponentModel;
 
 namespace BH.oM.Adapters.OpenAI.Commands
 {
-    [Description("Command to execute a prompt with a system and user message. Allows for continuous chats by providing previous messages and responses to " + nameof(User) + " and " + nameof(Assistant) + ", respectively.")]
-    public class ExecutePrompt : IExecuteCommand, IObject
+    [Description("Command generating a model response to a prompt with the Responses API, recommended for most uses. Allows for continuous chats by providing previous messages and responses to " + nameof(User) + " and " + nameof(Assistant) + ", respectively.")]
+    public class GenerateResponse : IExecuteCommand, IObject
     {
         /***************************************************/
         /****             Public properties             ****/
