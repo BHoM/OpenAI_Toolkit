@@ -35,15 +35,15 @@ namespace BH.Adapter.OpenAI
         /***************************************************/
 
         [PreviousVersion("10.0", "BH.Adapter.OpenAI.OpenAIAdapter(System.String, BH.oM.Adapters.OpenAI.Authorization.IAuthorizationSource)")]
-        [Description("Adapter executing commands against a model deployment through OpenAI's API, e.g. generating responses or chat completions.")]
+        [Description("Adapter executing commands against a model deployment through OpenAI's API, e.g. generating responses, chat completions or embeddings.")]
         [Input("url", "Base URL of the OpenAI v1 API, to which each command appends its own endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/ for Azure or https://api.openai.com/v1/ for OpenAI.")]
-        [Input("model", "Name of the model deployment to execute commands with, e.g. gpt-6-luna.")]
+        [Input("model", "Name of the model deployment to execute commands with, e.g. gpt-6-luna, or an embedding model deployment such as text-embedding-3-large for GenerateEmbeddings.")]
         [Input("credentialsSource", "Source of the credentials used to authorise the API calls.")]
         public OpenAIAdapter(string url, string model, IAuthorizationSource credentialsSource)
         {
             if (string.IsNullOrWhiteSpace(url))
                 BH.Engine.Base.Compute.RecordError("The URL of the API has not been provided, e.g. https://<resource>.openai.azure.com/openai/v1/.");
-            else if (url.Contains("?") || url.TrimEnd('/').EndsWith("/responses") || url.TrimEnd('/').EndsWith("/chat/completions"))
+            else if (url.Contains("?") || url.TrimEnd('/').EndsWith("/responses") || url.TrimEnd('/').EndsWith("/chat/completions") || url.TrimEnd('/').EndsWith("/embeddings"))
                 BH.Engine.Base.Compute.RecordError("The URL should be the base URL of the API rather than a specific endpoint, e.g. https://<resource>.openai.azure.com/openai/v1/.");
 
             m_Url = url?.TrimEnd('/') + "/";

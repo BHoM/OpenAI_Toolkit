@@ -121,7 +121,7 @@ namespace BH.Adapter.OpenAI
                 }
                 catch (OperationCanceledException) when (cts.IsCancellationRequested)
                 {
-                    throw new TimeoutException($"The request timed out after {timeoutSeconds} seconds. Increase {nameof(PromptExecutionConfig.TimeoutSeconds)} in the {nameof(PromptExecutionConfig)} if the model needs more time to respond.");
+                    throw new TimeoutException($"The request timed out after {timeoutSeconds} seconds. Increase TimeoutSeconds in the action config if the model needs more time to respond.");
                 }
             }
         }
